@@ -11,15 +11,15 @@ services:
       - mysql_data:/var/lib/mysql
 
   backend:
-    build: ./backend
+    build: ./django-api
     restart: always
     env_file:
-      - ./backend/.env
+      - ./django-api/.env
     depends_on:
       - mysql
 
   frontend:
-    build: ./frontend
+    build: ./inventory-app
     restart: always
 
   nginx:
