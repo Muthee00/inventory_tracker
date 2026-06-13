@@ -63,7 +63,8 @@ CORS_ALLOW_ALL_ORIGINS = True
 #         }
 #     }
 
-DATABASES = {
+if DEBUG:
+    DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'inventory_db',
@@ -73,6 +74,19 @@ DATABASES = {
         'PORT': '3306',
     }
 }
+else:
+   DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": "inventory_db",
+        "USER": "myappuser",
+        "PASSWORD": "StrongPassword",
+        "HOST": "mysql",   
+        "PORT": "3306",
+    }
+}
+
+
 
 REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
