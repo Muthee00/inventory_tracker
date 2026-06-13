@@ -1,0 +1,158 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tw-animate-css";
+@import "@fontsource-variable/geist";
+
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  /* Fonts */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-heading: var(--font-sans);
+
+  /* Colors - Light mode defaults */
+  --color-background: hsl(220 20% 97%);
+  --color-foreground: hsl(220 30% 10%);
+  --color-card: hsl(0 0% 100%);
+  --color-card-foreground: hsl(220 30% 10%);
+  --color-popover: hsl(0 0% 100%);
+  --color-popover-foreground: hsl(220 30% 10%);
+  --color-primary: hsl(220 70% 45%);
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-secondary: hsl(220 15% 92%);
+  --color-secondary-foreground: hsl(220 30% 20%);
+  --color-muted: hsl(220 15% 94%);
+  --color-muted-foreground: hsl(220 10% 46%);
+  --color-accent: hsl(36 95% 52%);
+  --color-accent-foreground: hsl(36 95% 12%);
+  --color-destructive: hsl(0 72% 51%);
+  --color-destructive-foreground: hsl(0 0% 100%);
+  --color-success: hsl(142 70% 40%);
+  --color-success-foreground: hsl(0 0% 100%);
+  --color-warning: hsl(36 95% 52%);
+  --color-warning-foreground: hsl(36 95% 12%);
+  --color-border: hsl(220 15% 90%);
+  --color-input: hsl(220 15% 90%);
+  --color-ring: hsl(220 70% 45%);
+
+  /* Sidebar */
+  --color-sidebar: hsl(220 30% 12%);
+  --color-sidebar-foreground: hsl(220 10% 85%);
+  --color-sidebar-primary: hsl(220 70% 55%);
+  --color-sidebar-primary-foreground: hsl(0 0% 100%);
+  --color-sidebar-accent: hsl(220 25% 18%);
+  --color-sidebar-accent-foreground: hsl(220 10% 90%);
+  --color-sidebar-border: hsl(220 25% 20%);
+  --color-sidebar-ring: hsl(220 70% 55%);
+  --color-sidebar-muted: hsl(220 15% 35%);
+
+  /* Radius */
+  --radius: 0.625rem;
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Shadows */
+  --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.07), 0 1px 2px -1px rgb(0 0 0 / 0.07);
+  --shadow-elevated: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  .dark {
+    color-scheme: dark;
+
+    --color-background: hsl(220 25% 8%);
+    --color-foreground: hsl(220 10% 92%);
+    --color-card: hsl(220 25% 11%);
+    --color-card-foreground: hsl(220 10% 92%);
+    --color-popover: hsl(220 25% 11%);
+    --color-popover-foreground: hsl(220 10% 92%);
+    --color-primary: hsl(220 70% 55%);
+    --color-primary-foreground: hsl(0 0% 100%);
+    --color-secondary: hsl(220 20% 18%);
+    --color-secondary-foreground: hsl(220 10% 85%);
+    --color-muted: hsl(220 20% 16%);
+    --color-muted-foreground: hsl(220 10% 55%);
+    --color-accent: hsl(36 95% 52%);
+    --color-accent-foreground: hsl(36 95% 12%);
+    --color-destructive: hsl(0 62% 30.6%);
+    --color-destructive-foreground: hsl(0 0% 100%);
+    --color-border: hsl(220 20% 18%);
+    --color-input: hsl(220 20% 18%);
+    --color-ring: hsl(220 70% 55%);
+  }
+
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+  }
+
+  html {
+    font-family: var(--font-sans);
+  }
+}
+
+@layer components {
+  .stat-card {
+    @apply bg-card rounded-xl p-5 border border-border transition-shadow duration-200;
+    box-shadow: var(--shadow-card);
+  }
+  .stat-card:hover {
+    box-shadow: var(--shadow-elevated);
+  }
+
+  .page-header {
+    @apply text-2xl font-bold tracking-tight text-foreground;
+  }
+
+  .page-subtitle {
+    @apply text-sm text-muted-foreground mt-1;
+  }
+
+  .status-badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .status-in-stock {
+    background-color: color-mix(in srgb, var(--color-success) 10%, transparent);
+    color: var(--color-success);
+  }
+
+  .status-low-stock {
+    background-color: color-mix(in srgb, var(--color-warning) 10%, transparent);
+    color: var(--color-warning);
+  }
+
+  .status-out-of-stock {
+    background-color: color-mix(in srgb, var(--color-destructive) 10%, transparent);
+    color: var(--color-destructive);
+  }
+
+  .sidebar-item {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150;
+    color: color-mix(in srgb, var(--color-sidebar-foreground) 70%, transparent);
+  }
+  .sidebar-item:hover {
+    color: var(--color-sidebar-foreground);
+    background-color: var(--color-sidebar-accent);
+  }
+
+  .sidebar-item-active {
+    background-color: var(--color-sidebar-accent);
+    color: var(--color-sidebar-primary-foreground);
+  }
+}
