@@ -3,8 +3,8 @@ services:
     image: mysql:8.4
     restart: always
     environment:
-      MYSQL_DATABASE: myappdb
-      MYSQL_ROOT_PASSWORD: StrongPassword
+      MYSQL_DATABASE: inventory_db
+      MYSQL_ROOT_PASSWORD: soft2025
       MYSQL_USER: myappuser
       MYSQL_PASSWORD: StrongPassword
     volumes:
