@@ -63,19 +63,31 @@ CORS_ALLOW_ALL_ORIGINS = True
 #         }
 #     }
 
+# if DEBUG:
+#     DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.mysql',
+#         'NAME': 'inventory_db',
+#         'USER': 'root',
+#         'PASSWORD': 'soft2025',
+#         'HOST': 'localhost',
+#         'PORT': '3306',
+#     }
+# }
+# else:
+#    DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.mysql",
+#         "NAME": "inventory_db",
+#         "USER": "myappuser",
+#         "PASSWORD": "StrongPassword",
+#         "HOST": "mysql",   
+#         "PORT": "3306",
+#     }
+# }
+
 if DEBUG:
     DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'inventory_db',
-        'USER': 'root',
-        'PASSWORD': 'soft2025',
-        'HOST': 'localhost',
-        'PORT': '3306',
-    }
-}
-else:
-   DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
         "NAME": "inventory_db",
@@ -84,7 +96,7 @@ else:
         "HOST": "mysql",   
         "PORT": "3306",
     }
-}
+    }	
 
 
 

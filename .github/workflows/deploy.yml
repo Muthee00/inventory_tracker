@@ -1,0 +1,125 @@
+name: Inventory App Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  BACKEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/inventory-app-backend
+  FRONTEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/inventory-app-frontend
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('django-api/requirements.txt') }}
+          restore-keys: ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          cd django-api
+          pip install -r requirements.txt
+
+      - name: Run Django tests
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings
+          SECRET_KEY: ci-test-secret-key
+          DEBUG: "1"
+        run: |
+          cd django-api
+          python manage.py test
+
+  build-and-deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./django-api
+          push: true
+          tags: |
+            ${{ env.BACKEND_IMAGE }}:latest
+            ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build React frontend
+        run: |
+          cd inventory-app
+          npm ci
+          npm run build
+
+      - name: Build and push nginx+frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./inventory-app
+          push: true
+          tags: |
+            ${{ env.FRONTEND_IMAGE }}:latest
+            ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          passphrase: ${{ secrets.VPS_SSH_KEY_PASSPHRASE }}
+          script: |
+            cd /opt/inventory-app || mkdir -p /opt/inventory-app && cd /opt/inventory-app
+
+            cat > .env << EOF
+            DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
+            APP_NAME=inventory-app
+            MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}
+            MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
+            MYSQL_USER=${{ secrets.MYSQL_USER }}
+            MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}
+            SECRET_KEY=${{ secrets.DJANGO_SECRET_KEY }}
+            DEBUG=0
+            ALLOWED_HOSTS=${{ secrets.VPS_HOST }}
+            EOF
+
+            curl -o docker-compose.yml https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose.yml
+            curl -o nginx/default.conf https://raw.githubusercontent.com/${{ github.repository }}/main/nginx/default.conf
+
+            docker compose --env-file .env pull
+            docker compose --env-file .env down
+            docker compose --env-file .env up -d
+
+            docker image prune -f
