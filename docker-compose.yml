@@ -2,16 +2,17 @@ services:
   mysql:
     image: mysql:8.4
     restart: always
-    environment:
-      MYSQL_DATABASE: inventory_db
-      MYSQL_ROOT_PASSWORD: soft2025
-      MYSQL_USER: myappuser
-      MYSQL_PASSWORD: StrongPassword
+    # Best practice: Use the .env file your VPS script generates 
+    # instead of hardcoding the passwords here!
+    env_file:
+      - .env
     volumes:
       - mysql_data:/var/lib/mysql
 
   backend:
-    build: ./django-api
+    # REMOVED: build: ./django-api
+    # ADDED: Pull the image from Docker Hub instead
+    image: ${DOCKER_USERNAME}/inventory-app-backend:latest
     restart: always
     env_file:
       - .env
@@ -19,14 +20,14 @@ services:
       - mysql
 
   nginx:
-    image: nginx:alpine
+    # REMOVED: image: nginx:alpine
+    # ADDED: Pull your custom frontend image containing the React build and Nginx config
+    image: ${DOCKER_USERNAME}/inventory-app-frontend:latest
     restart: always
     ports:
       - "80:80"
       - "443:443"
-    volumes:
-      - ./inventory-app/dist:/usr/share/nginx/html:ro
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    # REMOVED the volumes that tried to mount local files that don't exist on the VPS
     depends_on:
       - backend
 
