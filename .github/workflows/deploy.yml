@@ -115,8 +115,8 @@ jobs:
             ALLOWED_HOSTS=${{ secrets.VPS_HOST }}
             EOF
 
-            curl -H "Authorization: token ${{ secrets.GH_PAT }}" -o docker-compose.yml https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose.yml
-            curl --create-dirs -H "Authorization: token ${{ secrets.GH_PAT }}" -o nginx/default.conf https://raw.githubusercontent.com/${{ github.repository }}/main/nginx/default.conf
+            curl -H "Authorization: token ${{ secrets.GH_PAT }}" -o docker-compose.yml https://raw.githubusercontent.com/Muthee00/inventory_tracker/main/docker-compose.yml
+            curl --create-dirs -H "Authorization: token ${{ secrets.GH_PAT }}" -o nginx/default.conf https://raw.githubusercontent.com/Muthee00/inventory_tracker/main/nginx/default.conf
 
             docker compose --env-file .env pull
             docker compose --env-file .env down
