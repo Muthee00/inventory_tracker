@@ -13,7 +13,7 @@ import {
   type StockAlert,
 } from "./mock-data";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 async function apiFetch<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const token = localStorage.getItem("inventrack:access");
