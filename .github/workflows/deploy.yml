@@ -23,7 +23,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: "3.12"
 
       - name: Cache pip dependencies
         uses: actions/cache@v3
@@ -101,8 +101,20 @@ jobs:
           port: ${{ secrets.VPS_PORT }}
           passphrase: ${{ secrets.VPS_SSH_KEY_PASSPHRASE }}
           script: |
-            cd /opt/inventory-app || mkdir -p /opt/inventory-app && cd /opt/inventory-app
+            set -e
 
+            APP_DIR=/opt/inventory-app
+
+            # 1. Create app directory with proper permissions
+            sudo mkdir -p $APP_DIR
+            sudo chown -R $USER:$USER $APP_DIR
+
+            cd $APP_DIR
+
+            # 2. Create nginx directory
+            mkdir -p nginx
+
+            # 3. Create .env file
             cat > .env << EOF
             DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
             APP_NAME=inventory-app
@@ -115,11 +127,25 @@ jobs:
             ALLOWED_HOSTS=${{ secrets.VPS_HOST }}
             EOF
 
-            curl -o docker-compose.yml https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose.yml
-            curl -o nginx/default.conf https://raw.githubusercontent.com/${{ github.repository }}/main/nginx/default.conf
+            # 4. Pull latest compose files (force overwrite, follow redirects)
+            curl -L -o docker-compose.yml \
+            https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose.yml
 
-            docker compose --env-file .env pull
-            docker compose --env-file .env down
-            docker compose --env-file .env up -d
+            curl -L -o nginx/default.conf \
+            https://raw.githubusercontent.com/${{ github.repository }}/main/nginx/default.conf
 
-            docker image prune -f
+            # 5. Ensure Docker access (fallback-safe)
+            if ! docker ps >/dev/null 2>&1; then
+              echo "Docker requires sudo access"
+              SUDO_DOCKER="sudo"
+            else
+              SUDO_DOCKER=""
+            fi
+
+            # 6. Deploy application
+            $SUDO_DOCKER docker compose --env-file .env pull
+            $SUDO_DOCKER docker compose --env-file .env down || true
+            $SUDO_DOCKER docker compose --env-file .env up -d
+
+            # 7. Cleanup unused images
+            $SUDO_DOCKER docker image prune -f
