@@ -14,7 +14,7 @@ services:
     build: ./django-api
     restart: always
     env_file:
-      - ./django-api/.env
+      - .env
     depends_on:
       - mysql
 
