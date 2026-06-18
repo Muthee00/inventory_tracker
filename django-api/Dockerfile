@@ -8,6 +8,12 @@ ENV PYTHONUNBUFFERED=1
 RUN pip install --upgrade pip
 
 COPY requirements.txt /app/
+
+# Install system dependencies required for mysqlclient
+RUN apt-get update \
+    && apt-get install -y pkg-config default-libmysqlclient-dev build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . /app/

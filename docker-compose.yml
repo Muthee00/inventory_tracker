@@ -3,26 +3,20 @@ services:
     image: mysql:8.4
     restart: always
     environment:
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: inventory_db
+      MYSQL_ROOT_PASSWORD: soft2025
+      MYSQL_USER: myappuser
+      MYSQL_PASSWORD: StrongPassword
     volumes:
       - mysql_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   backend:
-    image: ${DOCKER_USERNAME}/${APP_NAME}-backend:latest
+    build: ./django-api
     restart: always
     env_file:
-      - .env
+      - ./django-api/.env
     depends_on:
-      mysql:
-        condition: service_healthy
+      - mysql
 
   nginx:
     image: nginx:alpine
@@ -31,6 +25,7 @@ services:
       - "80:80"
       - "443:443"
     volumes:
+      - ./inventory-app/dist:/usr/share/nginx/html:ro
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - backend
