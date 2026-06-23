@@ -25,8 +25,7 @@ services:
     image: ${DOCKER_USERNAME}/inventory-app-frontend:latest
     restart: always
     ports:
-      - "80:80"
-      - "443:443"
+      - "80"
     # REMOVED the volumes that tried to mount local files that don't exist on the VPS
     depends_on:
       - backend
