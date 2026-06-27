@@ -6,8 +6,7 @@ import {
   ArrowUpRight,
   ArrowDownRight,
 } from "lucide-react";
-import { monthlySalesData, categoryStockData } from "./../lib/mock-data";
-import { useDashboardStats, useStockAlerts, usePurchaseOrders } from "./../hooks/use-api";
+import { useAnalyticsData, useDashboardStats, useStockAlerts, usePurchaseOrders } from "./../hooks/use-api";
 import { Card, CardContent, CardHeader, CardTitle } from "./../components/ui/card";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
@@ -17,8 +16,11 @@ import { Skeleton } from "./../components/ui/skeleton";
 
 export default function Dashboard() {
   const { data: dashStats, isLoading: statsLoading } = useDashboardStats();
+  const { data: analytics } = useAnalyticsData();
   const { data: alerts = [] } = useStockAlerts();
   const { data: orders = [] } = usePurchaseOrders();
+  const monthlySalesData = analytics?.monthlySales ?? [];
+  const categoryStockData = analytics?.categoryStock ?? [];
 
   const stats = [
     {
@@ -30,7 +32,7 @@ export default function Dashboard() {
     {
       label: "Total Value",
       value: dashStats ? `$${dashStats.totalValue.toLocaleString()}` : "—",
-      change: "+8%", trend: "up" as const,
+      change: "Live", trend: "up" as const,
       icon: DollarSign, color: "text-success", bg: "bg-success/10",
     },
     {
@@ -77,7 +79,7 @@ export default function Dashboard() {
                     <ArrowDownRight className="h-3.5 w-3.5 text-destructive" />
                   )}
                   <span className={stat.trend === "up" ? "text-success" : "text-destructive"}>{stat.change}</span>
-                  <span className="text-muted-foreground">vs last month</span>
+                  <span className="text-muted-foreground">{stat.change === "Live" ? "from inventory" : "vs last month"}</span>
                 </div>
               </>
             )}
@@ -87,7 +89,7 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-2">
-          <CardHeader><CardTitle className="text-base">Monthly Revenue</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">Purchase Order Value</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={monthlySalesData}>
@@ -98,6 +100,9 @@ export default function Dashboard() {
                 <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
+            {monthlySalesData.length === 0 && (
+              <p className="mt-3 text-center text-sm text-muted-foreground">No purchase order history yet.</p>
+            )}
           </CardContent>
         </Card>
 
@@ -115,7 +120,7 @@ export default function Dashboard() {
               </PieChart>
             </ResponsiveContainer>
             <div className="space-y-2 mt-2">
-              {categoryStockData.map((cat) => (
+              {categoryStockData.length > 0 ? categoryStockData.map((cat) => (
                 <div key={cat.category} className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2">
                     <div className="h-2.5 w-2.5 rounded-full" style={{ background: cat.fill }} />
@@ -123,7 +128,9 @@ export default function Dashboard() {
                   </div>
                   <span className="font-medium">{cat.value}</span>
                 </div>
-              ))}
+              )) : (
+                <p className="text-center text-sm text-muted-foreground">No category stock yet.</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -144,6 +151,9 @@ export default function Dashboard() {
                 </span>
               </div>
             ))}
+            {alerts.length === 0 && (
+              <p className="py-6 text-center text-sm text-muted-foreground">No active stock alerts.</p>
+            )}
           </CardContent>
         </Card>
 
@@ -170,6 +180,9 @@ export default function Dashboard() {
                 </div>
               </div>
             ))}
+            {orders.length === 0 && (
+              <p className="py-6 text-center text-sm text-muted-foreground">No purchase orders yet.</p>
+            )}
           </CardContent>
         </Card>
       </div>

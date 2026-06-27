@@ -1,4 +1,4 @@
-from django.contrib.auth import get_user_model, password_validation
+from django.contrib.auth import authenticate, get_user_model, password_validation
 from rest_framework import serializers
 
 from .models import Profile
@@ -50,6 +50,34 @@ class RegisterSerializer(serializers.Serializer):
             user.save(update_fields=["first_name", "last_name"])
             user.profile.save()
         return user
+
+
+class LoginSerializer(serializers.Serializer):
+    username = serializers.CharField()
+    password = serializers.CharField(write_only=True, trim_whitespace=False)
+
+    def validate(self, attrs):
+        identifier = attrs["username"].strip()
+        password = attrs["password"]
+        username = identifier
+
+        if "@" in identifier:
+            user = User.objects.filter(email__iexact=identifier).first()
+            if user:
+                username = user.get_username()
+
+        user = authenticate(
+            request=self.context.get("request"),
+            username=username,
+            password=password,
+        )
+        if not user:
+            raise serializers.ValidationError("Invalid email or password.")
+        if not user.is_active:
+            raise serializers.ValidationError("This account is inactive.")
+
+        attrs["user"] = user
+        return attrs
 
 
 class PasswordResetRequestSerializer(serializers.Serializer):

@@ -12,26 +12,64 @@ import {
   type PurchaseOrder,
   type StockAlert,
 } from "./mock-data";
+import { clearAuth, getAccessToken, refreshAccessToken } from "./auth-api";
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
+const CHART_COLORS = [
+  "hsl(220,70%,45%)",
+  "hsl(36,95%,52%)",
+  "hsl(142,70%,40%)",
+  "hsl(280,60%,50%)",
+  "hsl(0,72%,51%)",
+];
+
+function listFromResponse<T>(data: T[] | { results?: T[] }): T[] {
+  return Array.isArray(data) ? data : data.results ?? [];
+}
 
 async function apiFetch<T>(endpoint: string, options?: RequestInit): Promise<T> {
-  const token = localStorage.getItem("inventrack:access");
-  const authHeader: Record<string, string> =
-    token && token !== "mock-access-token" ? { Authorization: `Bearer ${token}` } : {};
-  const res = await fetch(`${API_BASE}${endpoint}`, {
-    headers: { "Content-Type": "application/json", ...authHeader, ...options?.headers },
-    ...options,
-  });
-  if (!res.ok) throw new Error(`API ${res.status}`);
+  const fetchWithToken = (token: string | null) =>
+    fetch(`${API_BASE}${endpoint}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token && token !== "mock-access-token" ? { Authorization: `Bearer ${token}` } : {}),
+        ...options?.headers,
+      },
+    });
+
+  let res = await fetchWithToken(getAccessToken());
+
+  if (res.status === 401) {
+    try {
+      const token = await refreshAccessToken();
+      res = await fetchWithToken(token);
+    } catch {
+      clearAuth();
+      throw new Error("Unauthorized");
+    }
+  }
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    const message =
+      (data && (data.detail || data.message)) ||
+      `API ${res.status}`;
+    throw new Error(message);
+  }
+
+  if (res.status === 204) {
+    return undefined as T;
+  }
+
   return res.json();
 }
 
 // ---------- Products ----------
 export async function fetchProducts(): Promise<Product[]> {
   try {
-    const data = await apiFetch<{ results: any[] }>("/products/");
-    return data.results.map((p) => ({
+    const data = await apiFetch<any[] | { results: any[] }>("/products/");
+    return listFromResponse(data).map((p) => ({
       id: String(p.id),
       name: p.name,
       sku: p.sku,
@@ -105,8 +143,8 @@ export async function deleteProduct(id: string): Promise<void> {
 // ---------- Suppliers ----------
 export async function fetchSuppliers(): Promise<Supplier[]> {
   try {
-    const data = await apiFetch<{ results: any[] }>("/suppliers/");
-    return data.results.map((s) => ({
+    const data = await apiFetch<any[] | { results: any[] }>("/suppliers/");
+    return listFromResponse(data).map((s) => ({
       id: String(s.id),
       name: s.name,
       email: s.email,
@@ -152,8 +190,8 @@ export async function deleteSupplier(id: string): Promise<void> {
 // ---------- Categories ----------
 export async function fetchCategories(): Promise<Category[]> {
   try {
-    const data = await apiFetch<{ results: any[] }>("/categories/");
-    return data.results.map((c) => ({
+    const data = await apiFetch<any[] | { results: any[] }>("/categories/");
+    return listFromResponse(data).map((c) => ({
       id: String(c.id),
       name: c.name,
       description: c.description,
@@ -193,8 +231,8 @@ export async function deleteCategory(id: string): Promise<void> {
 // ---------- Purchase Orders ----------
 export async function fetchPurchaseOrders(): Promise<PurchaseOrder[]> {
   try {
-    const data = await apiFetch<{ results: any[] }>("/purchase-orders/");
-    return data.results.map((o) => ({
+    const data = await apiFetch<any[] | { results: any[] }>("/purchase-orders/");
+    return listFromResponse(data).map((o) => ({
       id: o.order_number || String(o.id),
       supplier: o.supplier_name || "",
       date: o.order_date,
@@ -210,10 +248,10 @@ export async function fetchPurchaseOrders(): Promise<PurchaseOrder[]> {
 // ---------- Stock Alerts ----------
 export async function fetchStockAlerts(): Promise<StockAlert[]> {
   try {
-    const data = await apiFetch<{ results: any[] }>("/stock-alerts/");
+    const data = await apiFetch<any[] | { results: any[] }>("/stock-alerts/");
     // fetch products once to enrich alerts with current stock/min stock and sku
     const products = await fetchProducts();
-    return data.results.map((a) => {
+    return listFromResponse(data).map((a) => {
       const prod = products.find((p) => String(p.id) === String(a.product));
       return {
         id: String(a.id),
@@ -233,8 +271,24 @@ export async function fetchStockAlerts(): Promise<StockAlert[]> {
 export interface DashboardStats {
   totalProducts: number;
   totalValue: number;
+  totalCost: number;
+  potentialProfit: number;
   stockAlerts: number;
   activeSuppliers: number;
+}
+
+function statsFromProducts(products: Product[], suppliers: Supplier[]): DashboardStats {
+  const totalValue = products.reduce((sum, product) => sum + product.price * product.stock, 0);
+  const totalCost = products.reduce((sum, product) => sum + product.costPrice * product.stock, 0);
+
+  return {
+    totalProducts: products.length,
+    totalValue,
+    totalCost,
+    potentialProfit: totalValue - totalCost,
+    stockAlerts: products.filter((product) => product.status === "low-stock" || product.status === "out-of-stock").length,
+    activeSuppliers: suppliers.filter((supplier) => supplier.status === "active").length,
+  };
 }
 
 export async function fetchDashboardStats(): Promise<DashboardStats> {
@@ -242,17 +296,14 @@ export async function fetchDashboardStats(): Promise<DashboardStats> {
     const data = await apiFetch<any>("/products/dashboard_stats/");
     return {
       totalProducts: data.total_products,
-      totalValue: data.total_inventory_value,
+      totalValue: Number(data.total_inventory_value || 0),
+      totalCost: Number(data.total_cost_value || 0),
+      potentialProfit: Number(data.potential_profit || 0),
       stockAlerts: data.low_stock_count + data.out_of_stock_count,
       activeSuppliers: data.total_suppliers,
     };
   } catch {
-    return {
-      totalProducts: mockProducts.length,
-      totalValue: mockProducts.reduce((s, p) => s + p.price * p.stock, 0),
-      stockAlerts: mockAlerts.length,
-      activeSuppliers: mockSuppliers.filter((s) => s.status === "active").length,
-    };
+    return statsFromProducts(mockProducts, mockSuppliers);
   }
 }
 
@@ -260,27 +311,62 @@ export async function fetchDashboardStats(): Promise<DashboardStats> {
 export interface AnalyticsData {
   totalValue: number;
   totalCost: number;
+  orderValue: number;
   monthlySales: typeof mockSalesData;
   categoryStock: typeof mockCategoryStock;
   topProducts: Product[];
 }
 
+function monthlyOrderData(orders: PurchaseOrder[]) {
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const now = new Date();
+  const months = Array.from({ length: 6 }, (_, index) => {
+    const date = new Date(now.getFullYear(), now.getMonth() - 5 + index, 1);
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    return {
+      key,
+      month: monthNames[date.getMonth()],
+      revenue: 0,
+      orders: 0,
+    };
+  });
+
+  const byKey = new Map(months.map((month) => [month.key, month]));
+  orders.forEach((order) => {
+    const date = new Date(order.date);
+    if (Number.isNaN(date.getTime())) return;
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    const bucket = byKey.get(key);
+    if (!bucket) return;
+    bucket.revenue += order.total;
+    bucket.orders += 1;
+  });
+
+  return months.map(({ month, revenue, orders }) => ({ month, revenue, orders }));
+}
+
 export async function fetchAnalyticsData(): Promise<AnalyticsData> {
   try {
-    const [stats, stockByCat, products] = await Promise.all([
-      apiFetch<any>("/products/dashboard_stats/"),
+    const [stockByCat, products, orders] = await Promise.all([
       apiFetch<any[]>("/products/stock_by_category/"),
       fetchProducts(),
+      fetchPurchaseOrders(),
     ]);
-    const colors = ["hsl(220,70%,45%)", "hsl(36,95%,52%)", "hsl(142,70%,40%)", "hsl(280,60%,50%)", "hsl(0,72%,51%)"];
+    const totalValue = products.reduce((sum, product) => sum + product.price * product.stock, 0);
+    const totalCost = products.reduce((sum, product) => sum + product.costPrice * product.stock, 0);
+    const orderValue = orders
+      .filter((order) => order.status !== "cancelled")
+      .reduce((sum, order) => sum + order.total, 0);
+
     return {
-      totalValue: stats.total_inventory_value,
-      totalCost: stats.total_cost_value,
-      monthlySales: mockSalesData, // monthly sales need a separate endpoint
+      totalValue,
+      totalCost,
+      orderValue,
+      monthlySales: monthlyOrderData(orders),
       categoryStock: stockByCat.map((c: any, i: number) => ({
         category: c.name,
         value: c.total_stock || 0,
-        fill: colors[i % colors.length],
+        fill: CHART_COLORS[i % CHART_COLORS.length],
       })),
       topProducts: [...products].sort((a, b) => b.stock * b.price - a.stock * a.price).slice(0, 5),
     };
@@ -288,6 +374,7 @@ export async function fetchAnalyticsData(): Promise<AnalyticsData> {
     return {
       totalValue: mockProducts.reduce((s, p) => s + p.price * p.stock, 0),
       totalCost: mockProducts.reduce((s, p) => s + p.costPrice * p.stock, 0),
+      orderValue: mockOrders.filter((order) => order.status !== "cancelled").reduce((s, order) => s + order.total, 0),
       monthlySales: mockSalesData,
       categoryStock: mockCategoryStock,
       topProducts: [...mockProducts].sort((a, b) => b.stock * b.price - a.stock * a.price).slice(0, 5),

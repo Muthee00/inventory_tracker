@@ -14,6 +14,13 @@ const statusStyles: Record<string, string> = {
 
 export default function PurchaseOrdersPage() {
   const { data: purchaseOrders = [], isLoading } = usePurchaseOrders();
+  const openOrders = purchaseOrders.filter((order) => !["delivered", "cancelled"].includes(order.status)).length;
+  const deliveredValue = purchaseOrders
+    .filter((order) => order.status === "delivered")
+    .reduce((sum, order) => sum + order.total, 0);
+  const activeValue = purchaseOrders
+    .filter((order) => order.status !== "cancelled")
+    .reduce((sum, order) => sum + order.total, 0);
 
   if (isLoading) {
     return (
@@ -28,6 +35,21 @@ export default function PurchaseOrdersPage() {
       <div>
         <h1 className="page-header">Purchase Orders</h1>
         <p className="page-subtitle">{purchaseOrders.length} total orders</p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="stat-card">
+          <p className="text-sm text-muted-foreground">Open Orders</p>
+          <p className="text-2xl font-bold mt-1">{openOrders}</p>
+        </div>
+        <div className="stat-card">
+          <p className="text-sm text-muted-foreground">Active Order Value</p>
+          <p className="text-2xl font-bold mt-1">${activeValue.toLocaleString()}</p>
+        </div>
+        <div className="stat-card">
+          <p className="text-sm text-muted-foreground">Delivered Value</p>
+          <p className="text-2xl font-bold mt-1">${deliveredValue.toLocaleString()}</p>
+        </div>
       </div>
 
       <Card>

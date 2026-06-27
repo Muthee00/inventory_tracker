@@ -6,7 +6,15 @@ import { Card, CardContent, CardHeader } from "./../components/ui/card";
 import { Button } from "./../components/ui/button";
 import { Input } from "./../components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./../components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./../components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "./../components/ui/dialog";
 import { Label } from "./../components/ui/label";
 import { Plus, Search, Edit, Trash2, Loader2 } from "lucide-react";
 import { cn } from "./../lib/utils";
@@ -81,23 +89,31 @@ export default function SuppliersPage() {
           <DialogTrigger asChild>
             <Button><Plus className="h-4 w-4 mr-2" />Add Supplier</Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="sm:max-w-xl">
             <DialogHeader>
               <DialogTitle>{editSupplier ? "Edit Supplier" : "Add Supplier"}</DialogTitle>
+              <DialogDescription>
+                Maintain supplier contact details and account status.
+              </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSave} className="space-y-4">
-              <div><Label>Name</Label><Input name="name" defaultValue={editSupplier?.name} required /></div>
-              <div><Label>Email</Label><Input name="email" type="email" defaultValue={editSupplier?.email} required /></div>
-              <div><Label>Phone</Label><Input name="phone" defaultValue={editSupplier?.phone} required /></div>
-              <div><Label>Address</Label><Input name="address" defaultValue={editSupplier?.address} required /></div>
-              <div>
-                <Label>Status</Label>
-                <select name="status" defaultValue={editSupplier?.status || "active"} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+            <form onSubmit={handleSave} className="space-y-6">
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div className="space-y-2"><Label htmlFor="supplier-name">Name</Label><Input id="supplier-name" name="name" defaultValue={editSupplier?.name} required /></div>
+                <div className="space-y-2"><Label htmlFor="supplier-email">Email</Label><Input id="supplier-email" name="email" type="email" defaultValue={editSupplier?.email} required /></div>
+                <div className="space-y-2"><Label htmlFor="supplier-phone">Phone</Label><Input id="supplier-phone" name="phone" defaultValue={editSupplier?.phone} required /></div>
+                <div className="space-y-2">
+                  <Label htmlFor="supplier-status">Status</Label>
+                  <select id="supplier-status" name="status" defaultValue={editSupplier?.status || "active"} className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring">
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
                 </select>
+                </div>
+                <div className="space-y-2 sm:col-span-2"><Label htmlFor="supplier-address">Address</Label><Input id="supplier-address" name="address" defaultValue={editSupplier?.address} required /></div>
               </div>
-              <Button type="submit" className="w-full">{editSupplier ? "Update" : "Add"} Supplier</Button>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+                <Button type="submit">{editSupplier ? "Update" : "Add"} Supplier</Button>
+              </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>

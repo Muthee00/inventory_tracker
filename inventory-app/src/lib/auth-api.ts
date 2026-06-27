@@ -28,10 +28,18 @@ export function getAccessToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
 }
 
+export function getRefreshToken(): string | null {
+  return localStorage.getItem(REFRESH_KEY);
+}
+
 function storeAuth(tokens: AuthTokens) {
   localStorage.setItem(TOKEN_KEY, tokens.access);
   localStorage.setItem(REFRESH_KEY, tokens.refresh);
   localStorage.setItem(USER_KEY, JSON.stringify(tokens.user));
+}
+
+export function storeAccessToken(access: string) {
+  localStorage.setItem(TOKEN_KEY, access);
 }
 
 export function clearAuth() {
@@ -80,14 +88,10 @@ async function isNetworkError(err: unknown): Promise<boolean> {
 
 export async function login(email: string, password: string): Promise<AuthTokens> {
   try {
-    const data = await postJson<{ access: string; refresh: string }>(
-      "/auth/login/",
-      { username: email, password },
-    );
-    const me = await fetch(`${API_BASE}/auth/me/`, {
-      headers: { Authorization: `Bearer ${data.access}` },
-    }).then((r) => r.json());
-    const tokens: AuthTokens = { access: data.access, refresh: data.refresh, user: me };
+    const tokens = await postJson<AuthTokens>("/auth/login/", {
+      username: email,
+      password,
+    });
     storeAuth(tokens);
     return tokens;
   } catch (err) {
@@ -146,6 +150,20 @@ export async function logout(): Promise<void> {
     }
   }
   clearAuth();
+}
+
+export async function refreshAccessToken(): Promise<string> {
+  const refresh = getRefreshToken();
+  if (!refresh || refresh === "mock-refresh-token") {
+    clearAuth();
+    throw new Error("Your session has expired. Please sign in again.");
+  }
+
+  const data = await postJson<{ access: string }>("/auth/token/refresh/", {
+    refresh,
+  });
+  storeAccessToken(data.access);
+  return data.access;
 }
 
 export async function requestPasswordReset(email: string): Promise<void> {

@@ -1,7 +1,8 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from django.db.models import Sum, F, Count
+from django.db.models import DecimalField, ExpressionWrapper, F, Sum
 from .models import Category, Supplier, Product, PurchaseOrder, StockAlert
 from .serializers import (
     CategorySerializer, SupplierSerializer, ProductSerializer,
@@ -10,12 +11,14 @@ from .serializers import (
 
 
 class CategoryViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     search_fields = ["name"]
 
 
 class SupplierViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
     queryset = Supplier.objects.all()
     serializer_class = SupplierSerializer
     search_fields = ["name", "email"]
@@ -23,6 +26,7 @@ class SupplierViewSet(viewsets.ModelViewSet):
 
 
 class ProductViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
     queryset = Product.objects.select_related("category", "supplier").all()
     serializer_class = ProductSerializer
     search_fields = ["name", "sku"]
@@ -32,8 +36,16 @@ class ProductViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"])
     def dashboard_stats(self, request):
         products = Product.objects.all()
-        total_value = products.aggregate(val=Sum(F("price") * F("stock")))["val"] or 0
-        total_cost = products.aggregate(val=Sum(F("cost_price") * F("stock")))["val"] or 0
+        inventory_value = ExpressionWrapper(
+            F("price") * F("stock"),
+            output_field=DecimalField(max_digits=14, decimal_places=2),
+        )
+        cost_value = ExpressionWrapper(
+            F("cost_price") * F("stock"),
+            output_field=DecimalField(max_digits=14, decimal_places=2),
+        )
+        total_value = products.aggregate(val=Sum(inventory_value))["val"] or 0
+        total_cost = products.aggregate(val=Sum(cost_value))["val"] or 0
         return Response({
             "total_products": products.count(),
             "total_categories": Category.objects.count(),
@@ -56,6 +68,7 @@ class ProductViewSet(viewsets.ModelViewSet):
 
 
 class PurchaseOrderViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
     queryset = PurchaseOrder.objects.select_related("supplier").prefetch_related("order_items").all()
     serializer_class = PurchaseOrderSerializer
     search_fields = ["order_number"]
@@ -63,6 +76,7 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
 
 
 class StockAlertViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated]
     queryset = StockAlert.objects.select_related("product").all()
     serializer_class = StockAlertSerializer
     filterset_fields = ["alert_type", "is_resolved"]

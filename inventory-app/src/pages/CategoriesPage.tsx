@@ -5,7 +5,15 @@ import { createCategory, updateCategory, deleteCategory } from "../lib/api";
 import { Card, CardContent } from "./../components/ui/card";
 import { Button } from "./../components/ui/button";
 import { Input } from "./../components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./../components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "./../components/ui/dialog";
 import { Label } from "./../components/ui/label";
 import { Plus, Edit, Trash2, FolderOpen, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -71,14 +79,22 @@ export default function CategoriesPage() {
           <DialogTrigger asChild>
             <Button><Plus className="h-4 w-4 mr-2" />Add Category</Button>
           </DialogTrigger>
-          <DialogContent className="max-w-sm">
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>{editCat ? "Edit Category" : "Add Category"}</DialogTitle>
+              <DialogDescription>
+                Group products clearly for filtering and reporting.
+              </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSave} className="space-y-4">
-              <div><Label>Name</Label><Input name="name" defaultValue={editCat?.name} required /></div>
-              <div><Label>Description</Label><Input name="description" defaultValue={editCat?.description} required /></div>
-              <Button type="submit" className="w-full">{editCat ? "Update" : "Add"} Category</Button>
+            <form onSubmit={handleSave} className="space-y-6">
+              <div className="space-y-5">
+                <div className="space-y-2"><Label htmlFor="category-name">Name</Label><Input id="category-name" name="name" defaultValue={editCat?.name} required /></div>
+                <div className="space-y-2"><Label htmlFor="category-description">Description</Label><Input id="category-description" name="description" defaultValue={editCat?.description} required /></div>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+                <Button type="submit">{editCat ? "Update" : "Add"} Category</Button>
+              </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>

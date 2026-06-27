@@ -5,7 +5,15 @@ import { Card, CardContent, CardHeader } from "./../components/ui/card";
 import { Button } from "./../components/ui/button";
 import { Input } from "./../components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./../components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./../components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "./../components/ui/dialog";
 import { Label } from "./../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./../components/ui/select";
 import { Plus, Search, Edit, Trash2, Loader2 } from "lucide-react";
@@ -108,21 +116,25 @@ export default function ProductsPage() {
           <DialogTrigger asChild>
             <Button><Plus className="h-4 w-4 mr-2" />Add Product</Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
               <DialogTitle>{editProduct ? "Edit Product" : "Add Product"}</DialogTitle>
+              <DialogDescription>
+                Keep catalog, pricing, and stock thresholds accurate.
+              </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSave} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div><Label>Name</Label><Input name="name" defaultValue={editProduct?.name} required /></div>
-                <div><Label>SKU</Label><Input name="sku" defaultValue={editProduct?.sku} required /></div>
+            <form onSubmit={handleSave} className="space-y-6">
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div className="space-y-2"><Label htmlFor="product-name">Name</Label><Input id="product-name" name="name" defaultValue={editProduct?.name} required /></div>
+                <div className="space-y-2"><Label htmlFor="product-sku">SKU</Label><Input id="product-sku" name="sku" defaultValue={editProduct?.sku} required /></div>
                 <div>
-                  <Label>Category</Label>
+                  <Label htmlFor="product-category">Category</Label>
                   <select
+                    id="product-category"
                     name="category"
                     defaultValue={apiCategories.length > 0 ? (apiCategories.find((c) => c.name === editProduct?.category)?.id ?? "") : (editProduct?.category ?? "")}
                     required
-                    className="w-full rounded-md border bg-transparent px-3 py-2 text-sm focus:outline-none"
+                    className="mt-2 h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   >
                     <option value="" disabled hidden>Select category</option>
                     {apiCategories.length > 0
@@ -131,12 +143,13 @@ export default function ProductsPage() {
                   </select>
                 </div>
                 <div>
-                  <Label>Supplier</Label>
+                  <Label htmlFor="product-supplier">Supplier</Label>
                   <select
+                    id="product-supplier"
                     name="supplier"
                     defaultValue={apiSuppliers.length > 0 ? (apiSuppliers.find((s) => s.name === editProduct?.supplier)?.id ?? "") : (editProduct?.supplier ?? "")}
                     required
-                    className="w-full rounded-md border bg-transparent px-3 py-2 text-sm focus:outline-none"
+                    className="mt-2 h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   >
                     <option value="" disabled hidden>Select supplier</option>
                     {apiSuppliers.length > 0
@@ -144,12 +157,15 @@ export default function ProductsPage() {
                       : suppliers.map((s) => (<option key={s} value={s}>{s}</option>))}
                   </select>
                 </div>
-                <div><Label>Price</Label><Input name="price" type="number" step="0.01" defaultValue={editProduct?.price} required /></div>
-                <div><Label>Cost Price</Label><Input name="costPrice" type="number" step="0.01" defaultValue={editProduct?.costPrice} required /></div>
-                <div><Label>Stock</Label><Input name="stock" type="number" defaultValue={editProduct?.stock} required /></div>
-                <div><Label>Min Stock</Label><Input name="minStock" type="number" defaultValue={editProduct?.minStock} required /></div>
+                <div className="space-y-2"><Label htmlFor="product-price">Price</Label><Input id="product-price" name="price" type="number" min="0" step="0.01" defaultValue={editProduct?.price} required /></div>
+                <div className="space-y-2"><Label htmlFor="product-cost">Cost Price</Label><Input id="product-cost" name="costPrice" type="number" min="0" step="0.01" defaultValue={editProduct?.costPrice} required /></div>
+                <div className="space-y-2"><Label htmlFor="product-stock">Stock</Label><Input id="product-stock" name="stock" type="number" min="0" defaultValue={editProduct?.stock} required /></div>
+                <div className="space-y-2"><Label htmlFor="product-min-stock">Min Stock</Label><Input id="product-min-stock" name="minStock" type="number" min="0" defaultValue={editProduct?.minStock} required /></div>
               </div>
-              <Button type="submit" className="w-full">{editProduct ? "Update" : "Add"} Product</Button>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+                <Button type="submit">{editProduct ? "Update" : "Add"} Product</Button>
+              </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
