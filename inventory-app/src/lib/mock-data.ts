@@ -31,11 +31,14 @@ export interface Supplier {
 
 export interface PurchaseOrder {
   id: string;
+  dbId?: string;
   supplier: string;
+  supplierId?: string;
   date: string;
+  expectedDate?: string;
   items: number;
   total: number;
-  status: 'pending' | 'approved' | 'shipped' | 'delivered' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
 }
 
 export interface StockAlert {
@@ -78,7 +81,7 @@ export const suppliers: Supplier[] = [
 
 export const purchaseOrders: PurchaseOrder[] = [
   { id: 'PO-001', supplier: 'TechVault Inc.', date: '2026-03-07', items: 3, total: 4500.00, status: 'pending' },
-  { id: 'PO-002', supplier: 'PaperWorld Co.', date: '2026-03-06', items: 2, total: 1200.00, status: 'approved' },
+  { id: 'PO-002', supplier: 'PaperWorld Co.', date: '2026-03-06', items: 2, total: 1200.00, status: 'confirmed' },
   { id: 'PO-003', supplier: 'OfficePro Ltd.', date: '2026-03-05', items: 5, total: 8750.00, status: 'shipped' },
   { id: 'PO-004', supplier: 'SafeGuard Supplies', date: '2026-03-04', items: 4, total: 2100.00, status: 'delivered' },
   { id: 'PO-005', supplier: 'PackRight Inc.', date: '2026-03-03', items: 1, total: 450.00, status: 'cancelled' },

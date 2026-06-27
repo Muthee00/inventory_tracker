@@ -3,9 +3,11 @@ import {
   fetchProducts, createProduct, updateProduct, deleteProduct,
   fetchSuppliers, createSupplier, updateSupplier, deleteSupplier,
   fetchCategories, createCategory, updateCategory, deleteCategory,
-  fetchPurchaseOrders, fetchStockAlerts, fetchDashboardStats, fetchAnalyticsData,
+  fetchPurchaseOrders, createPurchaseOrder, updatePurchaseOrder, deletePurchaseOrder,
+  fetchStockAlerts, fetchDashboardStats, fetchAnalyticsData,
+  type CreatePurchaseOrderPayload,
 } from "../lib/api";
-import type { Product, Supplier, Category } from "./../lib/mock-data";
+import type { Product, Supplier, Category, PurchaseOrder } from "./../lib/mock-data";
 
 // ---- Products ----
 export function useProducts() {
@@ -15,21 +17,36 @@ export function useCreateProduct() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (p: Omit<Product, "id" | "status" | "lastUpdated">) => createProduct(p),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["products"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["stockAlerts"] });
+      qc.invalidateQueries({ queryKey: ["dashboardStats"] });
+      qc.invalidateQueries({ queryKey: ["analytics"] });
+    },
   });
 }
 export function useUpdateProduct() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: Partial<Product> }) => updateProduct(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["products"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["stockAlerts"] });
+      qc.invalidateQueries({ queryKey: ["dashboardStats"] });
+      qc.invalidateQueries({ queryKey: ["analytics"] });
+    },
   });
 }
 export function useDeleteProduct() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => deleteProduct(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["products"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["stockAlerts"] });
+      qc.invalidateQueries({ queryKey: ["dashboardStats"] });
+      qc.invalidateQueries({ queryKey: ["analytics"] });
+    },
   });
 }
 
@@ -88,6 +105,40 @@ export function useDeleteCategory() {
 // ---- Purchase Orders ----
 export function usePurchaseOrders() {
   return useQuery({ queryKey: ["purchaseOrders"], queryFn: fetchPurchaseOrders });
+}
+export function useCreatePurchaseOrder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreatePurchaseOrderPayload) => createPurchaseOrder(payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["purchaseOrders"] });
+      qc.invalidateQueries({ queryKey: ["analytics"] });
+    },
+  });
+}
+export function useUpdatePurchaseOrder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ dbId, data }: { dbId: string; data: { status?: PurchaseOrder["status"]; expectedDate?: string } }) =>
+      updatePurchaseOrder(dbId, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["purchaseOrders"] });
+      qc.invalidateQueries({ queryKey: ["analytics"] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["stockAlerts"] });
+      qc.invalidateQueries({ queryKey: ["dashboardStats"] });
+    },
+  });
+}
+export function useDeletePurchaseOrder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (dbId: string) => deletePurchaseOrder(dbId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["purchaseOrders"] });
+      qc.invalidateQueries({ queryKey: ["analytics"] });
+    },
+  });
 }
 
 // ---- Stock Alerts ----

@@ -6,7 +6,8 @@ from django.db.models import DecimalField, ExpressionWrapper, F, Sum
 from .models import Category, Supplier, Product, PurchaseOrder, StockAlert
 from .serializers import (
     CategorySerializer, SupplierSerializer, ProductSerializer,
-    PurchaseOrderSerializer, StockAlertSerializer,
+    PurchaseOrderSerializer, PurchaseOrderCreateSerializer, PurchaseOrderUpdateSerializer,
+    StockAlertSerializer,
 )
 
 
@@ -74,12 +75,37 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
     search_fields = ["order_number"]
     filterset_fields = ["status"]
 
+    def get_serializer_class(self):
+        if self.action == "create":
+            return PurchaseOrderCreateSerializer
+        if self.action in ("update", "partial_update"):
+            return PurchaseOrderUpdateSerializer
+        return PurchaseOrderSerializer
+
 
 class StockAlertViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = StockAlert.objects.select_related("product").all()
     serializer_class = StockAlertSerializer
     filterset_fields = ["alert_type", "is_resolved"]
+
+    def list(self, request, *args, **kwargs):
+        products = Product.objects.filter(
+            status__in=["low-stock", "out-of-stock"]
+        ).order_by("status", "name")
+        data = [
+            {
+                "id": product.id,
+                "product": product.id,
+                "product_name": product.name,
+                "alert_type": product.status,
+                "message": f"{product.name} is {product.get_status_display().lower()}",
+                "is_resolved": False,
+                "created_at": product.last_updated,
+            }
+            for product in products
+        ]
+        return Response(data)
 
     @action(detail=True, methods=["post"])
     def resolve(self, request, pk=None):

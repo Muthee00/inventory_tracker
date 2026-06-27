@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { type Product } from "./../lib/mock-data";
 import { useProducts, useCategories, useSuppliers } from "./../hooks/use-api";
 import { Card, CardContent, CardHeader } from "./../components/ui/card";
@@ -22,6 +23,7 @@ import { toast } from "sonner";
 import { createProduct, updateProduct, deleteProduct } from "../lib/api";
 
 export default function ProductsPage() {
+  const queryClient = useQueryClient();
   const { data: apiProducts = [], isLoading, refetch } = useProducts();
   const { data: apiCategories = [] } = useCategories();
   const { data: apiSuppliers = [] } = useSuppliers();
@@ -47,10 +49,18 @@ export default function ProductsPage() {
     return matchSearch && matchCat;
   });
 
+  const invalidateInventoryQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ["products"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboardStats"] });
+    queryClient.invalidateQueries({ queryKey: ["analytics"] });
+    queryClient.invalidateQueries({ queryKey: ["stockAlerts"] });
+  };
+
   const handleDelete = async (id: string) => {
     setLocalProducts(products.filter((p) => p.id !== id));
     await deleteProduct(id);
     toast.success("Product deleted");
+    invalidateInventoryQueries();
     refetch();
   };
 
@@ -94,6 +104,7 @@ export default function ProductsPage() {
     }
     setEditProduct(null);
     setDialogOpen(false);
+    invalidateInventoryQueries();
     refetch();
   };
 

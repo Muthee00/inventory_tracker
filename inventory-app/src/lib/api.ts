@@ -229,39 +229,119 @@ export async function deleteCategory(id: string): Promise<void> {
 }
 
 // ---------- Purchase Orders ----------
+function mapPurchaseOrder(o: any): PurchaseOrder {
+  return {
+    id: o.order_number || String(o.id),
+    dbId: String(o.id),
+    supplier: o.supplier_name || "",
+    supplierId: o.supplier != null ? String(o.supplier) : undefined,
+    date: o.order_date,
+    expectedDate: o.expected_date || undefined,
+    items: o.items_count,
+    total: Number(o.total_amount),
+    status: o.status as PurchaseOrder["status"],
+  };
+}
+
+export interface CreatePurchaseOrderPayload {
+  supplierId: string;
+  expectedDate?: string;
+  orderItems: { productId: string; quantity: number; unitPrice: number }[];
+}
+
 export async function fetchPurchaseOrders(): Promise<PurchaseOrder[]> {
   try {
     const data = await apiFetch<any[] | { results: any[] }>("/purchase-orders/");
-    return listFromResponse(data).map((o) => ({
-      id: o.order_number || String(o.id),
-      supplier: o.supplier_name || "",
-      date: o.order_date,
-      items: o.items_count,
-      total: Number(o.total_amount),
-      status: o.status as PurchaseOrder["status"],
-    }));
+    return listFromResponse(data).map(mapPurchaseOrder);
   } catch {
     return mockOrders;
   }
 }
 
+export async function createPurchaseOrder(payload: CreatePurchaseOrderPayload): Promise<PurchaseOrder> {
+  try {
+    const o = await apiFetch<any>("/purchase-orders/", {
+      method: "POST",
+      body: JSON.stringify({
+        supplier: Number(payload.supplierId),
+        expected_date: payload.expectedDate || null,
+        order_items: payload.orderItems.map((item) => ({
+          product: Number(item.productId),
+          quantity: item.quantity,
+          unit_price: item.unitPrice,
+        })),
+      }),
+    });
+    return mapPurchaseOrder(o);
+  } catch {
+    const supplierName = mockSuppliers.find((s) => s.id === payload.supplierId)?.name || "";
+    const total = payload.orderItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+    return {
+      id: `PO-${Date.now()}`,
+      supplier: supplierName,
+      supplierId: payload.supplierId,
+      date: new Date().toISOString().split("T")[0],
+      expectedDate: payload.expectedDate,
+      items: payload.orderItems.length,
+      total,
+      status: "pending",
+    };
+  }
+}
+
+export async function updatePurchaseOrder(
+  dbId: string,
+  data: { status?: PurchaseOrder["status"]; expectedDate?: string }
+): Promise<PurchaseOrder> {
+  try {
+    const body: Record<string, string> = {};
+    if (data.status) body.status = data.status;
+    if (data.expectedDate) body.expected_date = data.expectedDate;
+    const o = await apiFetch<any>(`/purchase-orders/${dbId}/`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    });
+    return mapPurchaseOrder(o);
+  } catch {
+    return {
+      id: dbId,
+      dbId,
+      supplier: "",
+      date: new Date().toISOString().split("T")[0],
+      items: 0,
+      total: 0,
+      status: data.status || "pending",
+    };
+  }
+}
+
+export async function deletePurchaseOrder(dbId: string): Promise<void> {
+  try {
+    await apiFetch(`/purchase-orders/${dbId}/`, { method: "DELETE" });
+  } catch {
+    // fallback handled in UI
+  }
+}
+
 // ---------- Stock Alerts ----------
+function alertsFromProducts(products: Product[]): StockAlert[] {
+  return products
+    .filter((product) => product.status === "low-stock" || product.status === "out-of-stock")
+    .map((product) => ({
+      id: product.id,
+      product: product.name,
+      sku: product.sku,
+      currentStock: product.stock,
+      minStock: product.minStock,
+      type: product.status === "out-of-stock" ? ("out" as const) : ("low" as const),
+    }))
+    .sort((a, b) => (a.type === "out" ? 0 : 1) - (b.type === "out" ? 0 : 1) || a.product.localeCompare(b.product));
+}
+
 export async function fetchStockAlerts(): Promise<StockAlert[]> {
   try {
-    const data = await apiFetch<any[] | { results: any[] }>("/stock-alerts/");
-    // fetch products once to enrich alerts with current stock/min stock and sku
     const products = await fetchProducts();
-    return listFromResponse(data).map((a) => {
-      const prod = products.find((p) => String(p.id) === String(a.product));
-      return {
-        id: String(a.id),
-        product: a.product_name || prod?.name || "",
-        sku: prod?.sku || "",
-        currentStock: prod?.stock ?? 0,
-        minStock: prod?.minStock ?? 0,
-        type: a.alert_type === "out-of-stock" ? "out" as const : a.alert_type === "low-stock" ? "low" as const : "low" as const,
-      };
-    });
+    return alertsFromProducts(products);
   } catch {
     return mockAlerts;
   }
@@ -273,48 +353,118 @@ export interface DashboardStats {
   totalValue: number;
   totalCost: number;
   potentialProfit: number;
+  profitMargin: number;
   stockAlerts: number;
   activeSuppliers: number;
+  totalUnits: number;
+}
+
+export interface InventoryMetrics {
+  totalValue: number;
+  totalCost: number;
+  potentialProfit: number;
+  profitMargin: number;
+  markup: number;
+  totalUnits: number;
+  inStockCount: number;
+  lowStockCount: number;
+  outOfStockCount: number;
+  avgUnitProfit: number;
+}
+
+export function computeInventoryMetrics(products: Product[]): InventoryMetrics {
+  const totalValue = products.reduce((sum, product) => sum + product.price * product.stock, 0);
+  const totalCost = products.reduce((sum, product) => sum + product.costPrice * product.stock, 0);
+  const potentialProfit = totalValue - totalCost;
+  const totalUnits = products.reduce((sum, product) => sum + product.stock, 0);
+  const inStockCount = products.filter((product) => product.status === "in-stock").length;
+  const lowStockCount = products.filter((product) => product.status === "low-stock").length;
+  const outOfStockCount = products.filter((product) => product.status === "out-of-stock").length;
+
+  return {
+    totalValue,
+    totalCost,
+    potentialProfit,
+    profitMargin: totalValue > 0 ? (potentialProfit / totalValue) * 100 : 0,
+    markup: totalCost > 0 ? (potentialProfit / totalCost) * 100 : 0,
+    totalUnits,
+    inStockCount,
+    lowStockCount,
+    outOfStockCount,
+    avgUnitProfit: totalUnits > 0 ? potentialProfit / totalUnits : 0,
+  };
 }
 
 function statsFromProducts(products: Product[], suppliers: Supplier[]): DashboardStats {
-  const totalValue = products.reduce((sum, product) => sum + product.price * product.stock, 0);
-  const totalCost = products.reduce((sum, product) => sum + product.costPrice * product.stock, 0);
+  const metrics = computeInventoryMetrics(products);
 
   return {
     totalProducts: products.length,
-    totalValue,
-    totalCost,
-    potentialProfit: totalValue - totalCost,
-    stockAlerts: products.filter((product) => product.status === "low-stock" || product.status === "out-of-stock").length,
+    totalValue: metrics.totalValue,
+    totalCost: metrics.totalCost,
+    potentialProfit: metrics.potentialProfit,
+    profitMargin: metrics.profitMargin,
+    stockAlerts: metrics.lowStockCount + metrics.outOfStockCount,
     activeSuppliers: suppliers.filter((supplier) => supplier.status === "active").length,
+    totalUnits: metrics.totalUnits,
   };
 }
 
 export async function fetchDashboardStats(): Promise<DashboardStats> {
   try {
-    const data = await apiFetch<any>("/products/dashboard_stats/");
-    return {
-      totalProducts: data.total_products,
-      totalValue: Number(data.total_inventory_value || 0),
-      totalCost: Number(data.total_cost_value || 0),
-      potentialProfit: Number(data.potential_profit || 0),
-      stockAlerts: data.low_stock_count + data.out_of_stock_count,
-      activeSuppliers: data.total_suppliers,
-    };
+    const [products, suppliers] = await Promise.all([fetchProducts(), fetchSuppliers()]);
+    return statsFromProducts(products, suppliers);
   } catch {
     return statsFromProducts(mockProducts, mockSuppliers);
   }
 }
 
 // ---------- Analytics ----------
+export interface ProductProfitRow {
+  id: string;
+  name: string;
+  sku: string;
+  stock: number;
+  price: number;
+  costPrice: number;
+  retailValue: number;
+  costValue: number;
+  profit: number;
+  margin: number;
+}
+
+export interface CategoryValueRow {
+  category: string;
+  units: number;
+  retail: number;
+  cost: number;
+  profit: number;
+  margin: number;
+  fill: string;
+}
+
 export interface AnalyticsData {
   totalValue: number;
   totalCost: number;
+  potentialProfit: number;
+  profitMargin: number;
+  markup: number;
+  avgUnitProfit: number;
   orderValue: number;
+  openOrderValue: number;
+  deliveredOrderValue: number;
+  stockHealth: {
+    inStock: number;
+    lowStock: number;
+    outOfStock: number;
+    inStockPercent: number;
+  };
   monthlySales: typeof mockSalesData;
   categoryStock: typeof mockCategoryStock;
-  topProducts: Product[];
+  categoryValue: CategoryValueRow[];
+  topProductsByValue: ProductProfitRow[];
+  topProductsByProfit: ProductProfitRow[];
+  valueComparison: { name: string; retail: number; cost: number; profit: number }[];
 }
 
 function monthlyOrderData(orders: PurchaseOrder[]) {
@@ -333,6 +483,7 @@ function monthlyOrderData(orders: PurchaseOrder[]) {
 
   const byKey = new Map(months.map((month) => [month.key, month]));
   orders.forEach((order) => {
+    if (order.status === "cancelled") return;
     const date = new Date(order.date);
     if (Number.isNaN(date.getTime())) return;
     const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
@@ -345,39 +496,107 @@ function monthlyOrderData(orders: PurchaseOrder[]) {
   return months.map(({ month, revenue, orders }) => ({ month, revenue, orders }));
 }
 
+function productProfitRow(product: Product): ProductProfitRow {
+  const retailValue = product.price * product.stock;
+  const costValue = product.costPrice * product.stock;
+  const profit = retailValue - costValue;
+  return {
+    id: product.id,
+    name: product.name,
+    sku: product.sku,
+    stock: product.stock,
+    price: product.price,
+    costPrice: product.costPrice,
+    retailValue,
+    costValue,
+    profit,
+    margin: retailValue > 0 ? (profit / retailValue) * 100 : 0,
+  };
+}
+
+function categoryValueFromProducts(products: Product[]): CategoryValueRow[] {
+  const grouped = new Map<string, { units: number; retail: number; cost: number }>();
+  products.forEach((product) => {
+    const category = product.category || "Uncategorized";
+    const current = grouped.get(category) ?? { units: 0, retail: 0, cost: 0 };
+    current.units += product.stock;
+    current.retail += product.price * product.stock;
+    current.cost += product.costPrice * product.stock;
+    grouped.set(category, current);
+  });
+
+  return [...grouped.entries()]
+    .map(([category, values], index) => {
+      const profit = values.retail - values.cost;
+      return {
+        category,
+        units: values.units,
+        retail: values.retail,
+        cost: values.cost,
+        profit,
+        margin: values.retail > 0 ? (profit / values.retail) * 100 : 0,
+        fill: CHART_COLORS[index % CHART_COLORS.length],
+      };
+    })
+    .sort((a, b) => b.retail - a.retail);
+}
+
+function buildAnalyticsData(products: Product[], orders: PurchaseOrder[], stockByCat: any[]): AnalyticsData {
+  const metrics = computeInventoryMetrics(products);
+  const profitRows = products.map(productProfitRow);
+  const activeOrders = orders.filter((order) => order.status !== "cancelled");
+  const openOrderValue = activeOrders
+    .filter((order) => !["delivered", "cancelled"].includes(order.status))
+    .reduce((sum, order) => sum + order.total, 0);
+  const deliveredOrderValue = activeOrders
+    .filter((order) => order.status === "delivered")
+    .reduce((sum, order) => sum + order.total, 0);
+  const categoryValue = categoryValueFromProducts(products);
+
+  return {
+    totalValue: metrics.totalValue,
+    totalCost: metrics.totalCost,
+    potentialProfit: metrics.potentialProfit,
+    profitMargin: metrics.profitMargin,
+    markup: metrics.markup,
+    avgUnitProfit: metrics.avgUnitProfit,
+    orderValue: activeOrders.reduce((sum, order) => sum + order.total, 0),
+    openOrderValue,
+    deliveredOrderValue,
+    stockHealth: {
+      inStock: metrics.inStockCount,
+      lowStock: metrics.lowStockCount,
+      outOfStock: metrics.outOfStockCount,
+      inStockPercent: products.length > 0 ? (metrics.inStockCount / products.length) * 100 : 0,
+    },
+    monthlySales: monthlyOrderData(orders),
+    categoryStock: stockByCat.length > 0
+      ? stockByCat.map((c: any, i: number) => ({
+          category: c.name,
+          value: c.total_stock || 0,
+          fill: CHART_COLORS[i % CHART_COLORS.length],
+        }))
+      : categoryValue.map(({ category, units, fill }) => ({ category, value: units, fill })),
+    categoryValue,
+    topProductsByValue: [...profitRows].sort((a, b) => b.retailValue - a.retailValue).slice(0, 5),
+    topProductsByProfit: [...profitRows].sort((a, b) => b.profit - a.profit).slice(0, 5),
+    valueComparison: [
+      { name: "Inventory", retail: metrics.totalValue, cost: metrics.totalCost, profit: metrics.potentialProfit },
+      { name: "Open POs", retail: openOrderValue, cost: openOrderValue, profit: 0 },
+      { name: "Delivered POs", retail: deliveredOrderValue, cost: deliveredOrderValue, profit: 0 },
+    ],
+  };
+}
+
 export async function fetchAnalyticsData(): Promise<AnalyticsData> {
   try {
     const [stockByCat, products, orders] = await Promise.all([
-      apiFetch<any[]>("/products/stock_by_category/"),
+      apiFetch<any[]>("/products/stock_by_category/").catch(() => []),
       fetchProducts(),
       fetchPurchaseOrders(),
     ]);
-    const totalValue = products.reduce((sum, product) => sum + product.price * product.stock, 0);
-    const totalCost = products.reduce((sum, product) => sum + product.costPrice * product.stock, 0);
-    const orderValue = orders
-      .filter((order) => order.status !== "cancelled")
-      .reduce((sum, order) => sum + order.total, 0);
-
-    return {
-      totalValue,
-      totalCost,
-      orderValue,
-      monthlySales: monthlyOrderData(orders),
-      categoryStock: stockByCat.map((c: any, i: number) => ({
-        category: c.name,
-        value: c.total_stock || 0,
-        fill: CHART_COLORS[i % CHART_COLORS.length],
-      })),
-      topProducts: [...products].sort((a, b) => b.stock * b.price - a.stock * a.price).slice(0, 5),
-    };
+    return buildAnalyticsData(products, orders, stockByCat);
   } catch {
-    return {
-      totalValue: mockProducts.reduce((s, p) => s + p.price * p.stock, 0),
-      totalCost: mockProducts.reduce((s, p) => s + p.costPrice * p.stock, 0),
-      orderValue: mockOrders.filter((order) => order.status !== "cancelled").reduce((s, order) => s + order.total, 0),
-      monthlySales: mockSalesData,
-      categoryStock: mockCategoryStock,
-      topProducts: [...mockProducts].sort((a, b) => b.stock * b.price - a.stock * a.price).slice(0, 5),
-    };
+    return buildAnalyticsData(mockProducts, mockOrders, mockCategoryStock.map((c) => ({ name: c.category, total_stock: c.value })));
   }
 }

@@ -54,7 +54,12 @@ export default function StockAlertsPage() {
           <CardTitle className="text-base">All Alerts</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {stockAlerts.map((alert) => (
+          {stockAlerts.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              All products are adequately stocked. No alerts at this time.
+            </p>
+          ) : (
+            stockAlerts.map((alert) => (
             <div key={alert.id} className="flex items-center justify-between p-3 rounded-lg border border-border">
               <div className="flex items-center gap-3">
                 {alert.type === "out" ? (
@@ -77,7 +82,8 @@ export default function StockAlertsPage() {
                 </span>
               </div>
             </div>
-          ))}
+            ))
+          )}
         </CardContent>
       </Card>
     </div>
