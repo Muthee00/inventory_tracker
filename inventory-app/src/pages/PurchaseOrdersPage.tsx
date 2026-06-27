@@ -63,7 +63,8 @@ export default function PurchaseOrdersPage() {
   const supplierProducts = products.filter((product) => {
     if (!supplierId) return false;
     const supplier = suppliers.find((s) => s.id === supplierId);
-    return supplier ? product.supplier === supplier.name || product.supplier === supplierId : false;
+    if (!supplier) return false;
+    return product.supplierId === supplierId || product.supplier === supplier.name;
   });
 
   const resetForm = () => {

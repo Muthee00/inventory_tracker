@@ -16,7 +16,8 @@ export default function AnalyticsPage() {
     );
   }
 
-  const { totalValue, totalCost, orderValue, monthlySales, categoryStock, topProducts } = data;
+  const { totalValue, totalCost, orderValue, monthlySales, categoryStock, topProductsByValue } = data;
+  const topProducts = topProductsByValue;
 
   return (
     <div className="space-y-6 animate-fade-in">

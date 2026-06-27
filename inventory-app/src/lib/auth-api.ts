@@ -65,48 +65,13 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
   return data as T;
 }
 
-// ---- Mock fallback (used when Django API is unreachable) ----
-const MOCK_EMAIL = "demo@inventrack.dev";
-const MOCK_PASSWORD = "demo1234";
-
-function mockTokens(email: string, fullName = "Demo User"): AuthTokens {
-  return {
-    access: "mock-access-token",
-    refresh: "mock-refresh-token",
-    user: {
-      id: "mock-user",
-      email,
-      username: email,
-      profile: { full_name: fullName, role: "admin" },
-    },
-  };
-}
-
-async function isNetworkError(err: unknown): Promise<boolean> {
-  return err instanceof TypeError; // fetch network failure
-}
-
 export async function login(email: string, password: string): Promise<AuthTokens> {
-  try {
-    const tokens = await postJson<AuthTokens>("/auth/login/", {
-      username: email,
-      password,
-    });
-    storeAuth(tokens);
-    return tokens;
-  } catch (err) {
-    if (await isNetworkError(err)) {
-      if (email === MOCK_EMAIL && password === MOCK_PASSWORD) {
-        const tokens = mockTokens(email);
-        storeAuth(tokens);
-        return tokens;
-      }
-      throw new Error(
-        `API offline. Use mock login: ${MOCK_EMAIL} / ${MOCK_PASSWORD}`,
-      );
-    }
-    throw err;
-  }
+  const tokens = await postJson<AuthTokens>("/auth/login/", {
+    username: email,
+    password,
+  });
+  storeAuth(tokens);
+  return tokens;
 }
 
 export async function register(
@@ -114,28 +79,19 @@ export async function register(
   password: string,
   fullName: string,
 ): Promise<AuthTokens> {
-  try {
-    const tokens = await postJson<AuthTokens>("/auth/register/", {
-      email,
-      password,
-      full_name: fullName,
-    });
-    storeAuth(tokens);
-    return tokens;
-  } catch (err) {
-    if (await isNetworkError(err)) {
-      const tokens = mockTokens(email, fullName || "Demo User");
-      storeAuth(tokens);
-      return tokens;
-    }
-    throw err;
-  }
+  const tokens = await postJson<AuthTokens>("/auth/register/", {
+    email,
+    password,
+    full_name: fullName,
+  });
+  storeAuth(tokens);
+  return tokens;
 }
 
 export async function logout(): Promise<void> {
   const refresh = localStorage.getItem(REFRESH_KEY);
   const access = getAccessToken();
-  if (refresh && access && access !== "mock-access-token") {
+  if (refresh && access) {
     try {
       await fetch(`${API_BASE}/auth/logout/`, {
         method: "POST",
@@ -146,7 +102,7 @@ export async function logout(): Promise<void> {
         body: JSON.stringify({ refresh }),
       });
     } catch {
-      // ignore
+      // ignore network errors during logout
     }
   }
   clearAuth();
@@ -154,7 +110,7 @@ export async function logout(): Promise<void> {
 
 export async function refreshAccessToken(): Promise<string> {
   const refresh = getRefreshToken();
-  if (!refresh || refresh === "mock-refresh-token") {
+  if (!refresh) {
     clearAuth();
     throw new Error("Your session has expired. Please sign in again.");
   }
@@ -167,11 +123,7 @@ export async function refreshAccessToken(): Promise<string> {
 }
 
 export async function requestPasswordReset(email: string): Promise<void> {
-  try {
-    await postJson("/auth/password/reset/", { email });
-  } catch (err) {
-    if (!(await isNetworkError(err))) throw err;
-  }
+  await postJson("/auth/password/reset/", { email });
 }
 
 export async function confirmPasswordReset(

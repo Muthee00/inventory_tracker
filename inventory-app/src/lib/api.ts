@@ -1,16 +1,11 @@
 import {
-  products as mockProducts,
-  suppliers as mockSuppliers,
-  categories as mockCategories,
-  purchaseOrders as mockOrders,
-  stockAlerts as mockAlerts,
-  monthlySalesData as mockSalesData,
-  categoryStockData as mockCategoryStock,
   type Product,
   type Supplier,
   type Category,
   type PurchaseOrder,
   type StockAlert,
+  type MonthlyOrderTrend,
+  type CategoryStockSlice,
 } from "./mock-data";
 import { clearAuth, getAccessToken, refreshAccessToken } from "./auth-api";
 
@@ -33,7 +28,7 @@ async function apiFetch<T>(endpoint: string, options?: RequestInit): Promise<T> 
       ...options,
       headers: {
         "Content-Type": "application/json",
-        ...(token && token !== "mock-access-token" ? { Authorization: `Bearer ${token}` } : {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...options?.headers,
       },
     });
@@ -65,167 +60,119 @@ async function apiFetch<T>(endpoint: string, options?: RequestInit): Promise<T> 
   return res.json();
 }
 
+function mapProduct(p: any): Product {
+  return {
+    id: String(p.id),
+    name: p.name,
+    sku: p.sku,
+    category: p.category_name || "",
+    categoryId: p.category != null ? String(p.category) : undefined,
+    price: Number(p.price),
+    costPrice: Number(p.cost_price),
+    stock: p.stock,
+    minStock: p.min_stock,
+    supplier: p.supplier_name || "",
+    supplierId: p.supplier != null ? String(p.supplier) : undefined,
+    status: p.status as Product["status"],
+    lastUpdated: p.last_updated,
+  };
+}
+
 // ---------- Products ----------
 export async function fetchProducts(): Promise<Product[]> {
-  try {
-    const data = await apiFetch<any[] | { results: any[] }>("/products/");
-    return listFromResponse(data).map((p) => ({
-      id: String(p.id),
-      name: p.name,
-      sku: p.sku,
-      category: p.category_name || "",
-      price: Number(p.price),
-      costPrice: Number(p.cost_price),
-      stock: p.stock,
-      minStock: p.min_stock,
-      supplier: p.supplier_name || "",
-      status: p.status as Product["status"],
-      lastUpdated: p.last_updated,
-    }));
-  } catch {
-    return mockProducts;
-  }
+  const data = await apiFetch<any[] | { results: any[] }>("/products/");
+  return listFromResponse(data).map(mapProduct);
 }
 
 export async function createProduct(product: Omit<Product, "id" | "status" | "lastUpdated">): Promise<Product> {
-  try {
-    const p = await apiFetch<any>("/products/", {
-      method: "POST",
-      body: JSON.stringify({
-        name: product.name,
-        sku: product.sku,
-        category: product.category,
-        price: product.price,
-        cost_price: product.costPrice,
-        stock: product.stock,
-        min_stock: product.minStock,
-        supplier: product.supplier,
-      }),
-    });
-    return { ...product, id: String(p.id), status: p.status, lastUpdated: p.last_updated };
-  } catch {
-    const stock = product.stock;
-    const status: Product["status"] = stock === 0 ? "out-of-stock" : stock <= product.minStock ? "low-stock" : "in-stock";
-    return { ...product, id: Date.now().toString(), status, lastUpdated: new Date().toISOString().split("T")[0] };
-  }
+  const p = await apiFetch<any>("/products/", {
+    method: "POST",
+    body: JSON.stringify({
+      name: product.name,
+      sku: product.sku,
+      category: product.category,
+      price: product.price,
+      cost_price: product.costPrice,
+      stock: product.stock,
+      min_stock: product.minStock,
+      supplier: product.supplier,
+    }),
+  });
+  return mapProduct(p);
 }
 
 export async function updateProduct(id: string, product: Partial<Product>): Promise<Product> {
-  try {
-    const body: any = {};
-    if (product.name) body.name = product.name;
-    if (product.sku) body.sku = product.sku;
-    if (product.category) body.category = product.category;
-    if (product.price !== undefined) body.price = product.price;
-    if (product.costPrice !== undefined) body.cost_price = product.costPrice;
-    if (product.stock !== undefined) body.stock = product.stock;
-    if (product.minStock !== undefined) body.min_stock = product.minStock;
-    if (product.supplier) body.supplier = product.supplier;
-    const p = await apiFetch<any>(`/products/${id}/`, { method: "PATCH", body: JSON.stringify(body) });
-    return {
-      id: String(p.id), name: p.name, sku: p.sku, category: p.category_name || "",
-      price: Number(p.price), costPrice: Number(p.cost_price), stock: p.stock,
-      minStock: p.min_stock, supplier: p.supplier_name || "", status: p.status, lastUpdated: p.last_updated,
-    };
-  } catch {
-    return product as Product;
-  }
+  const body: Record<string, unknown> = {};
+  if (product.name) body.name = product.name;
+  if (product.sku) body.sku = product.sku;
+  if (product.category) body.category = product.category;
+  if (product.price !== undefined) body.price = product.price;
+  if (product.costPrice !== undefined) body.cost_price = product.costPrice;
+  if (product.stock !== undefined) body.stock = product.stock;
+  if (product.minStock !== undefined) body.min_stock = product.minStock;
+  if (product.supplier) body.supplier = product.supplier;
+  const p = await apiFetch<any>(`/products/${id}/`, { method: "PATCH", body: JSON.stringify(body) });
+  return mapProduct(p);
 }
 
 export async function deleteProduct(id: string): Promise<void> {
-  try {
-    await apiFetch(`/products/${id}/`, { method: "DELETE" });
-  } catch {
-    // fallback: handled in UI state
-  }
+  await apiFetch(`/products/${id}/`, { method: "DELETE" });
 }
 
 // ---------- Suppliers ----------
 export async function fetchSuppliers(): Promise<Supplier[]> {
-  try {
-    const data = await apiFetch<any[] | { results: any[] }>("/suppliers/");
-    return listFromResponse(data).map((s) => ({
-      id: String(s.id),
-      name: s.name,
-      email: s.email,
-      phone: s.phone,
-      address: s.address,
-      productsSupplied: s.products_supplied || 0,
-      status: s.status as Supplier["status"],
-    }));
-  } catch {
-    return mockSuppliers;
-  }
+  const data = await apiFetch<any[] | { results: any[] }>("/suppliers/");
+  return listFromResponse(data).map((s) => ({
+    id: String(s.id),
+    name: s.name,
+    email: s.email,
+    phone: s.phone,
+    address: s.address,
+    productsSupplied: s.products_supplied || 0,
+    status: s.status as Supplier["status"],
+  }));
 }
 
 export async function createSupplier(supplier: Omit<Supplier, "id" | "productsSupplied">): Promise<Supplier> {
-  try {
-    const s = await apiFetch<any>("/suppliers/", { method: "POST", body: JSON.stringify(supplier) });
-    return { ...supplier, id: String(s.id), productsSupplied: 0 };
-  } catch {
-    return { ...supplier, id: Date.now().toString(), productsSupplied: 0 };
-  }
+  const s = await apiFetch<any>("/suppliers/", { method: "POST", body: JSON.stringify(supplier) });
+  return { ...supplier, id: String(s.id), productsSupplied: 0 };
 }
 
 export async function updateSupplier(id: string, supplier: Partial<Supplier>): Promise<Supplier> {
-  try {
-    const s = await apiFetch<any>(`/suppliers/${id}/`, { method: "PATCH", body: JSON.stringify(supplier) });
-    return {
-      id: String(s.id), name: s.name, email: s.email, phone: s.phone,
-      address: s.address, productsSupplied: s.products_supplied || 0, status: s.status,
-    };
-  } catch {
-    return supplier as Supplier;
-  }
+  const s = await apiFetch<any>(`/suppliers/${id}/`, { method: "PATCH", body: JSON.stringify(supplier) });
+  return {
+    id: String(s.id), name: s.name, email: s.email, phone: s.phone,
+    address: s.address, productsSupplied: s.products_supplied || 0, status: s.status,
+  };
 }
 
 export async function deleteSupplier(id: string): Promise<void> {
-  try {
-    await apiFetch(`/suppliers/${id}/`, { method: "DELETE" });
-  } catch {
-    // fallback
-  }
+  await apiFetch(`/suppliers/${id}/`, { method: "DELETE" });
 }
 
 // ---------- Categories ----------
 export async function fetchCategories(): Promise<Category[]> {
-  try {
-    const data = await apiFetch<any[] | { results: any[] }>("/categories/");
-    return listFromResponse(data).map((c) => ({
-      id: String(c.id),
-      name: c.name,
-      description: c.description,
-      productCount: c.product_count || 0,
-    }));
-  } catch {
-    return mockCategories;
-  }
+  const data = await apiFetch<any[] | { results: any[] }>("/categories/");
+  return listFromResponse(data).map((c) => ({
+    id: String(c.id),
+    name: c.name,
+    description: c.description,
+    productCount: c.product_count || 0,
+  }));
 }
 
 export async function createCategory(cat: Omit<Category, "id" | "productCount">): Promise<Category> {
-  try {
-    const c = await apiFetch<any>("/categories/", { method: "POST", body: JSON.stringify(cat) });
-    return { ...cat, id: String(c.id), productCount: 0 };
-  } catch {
-    return { ...cat, id: Date.now().toString(), productCount: 0 };
-  }
+  const c = await apiFetch<any>("/categories/", { method: "POST", body: JSON.stringify(cat) });
+  return { ...cat, id: String(c.id), productCount: 0 };
 }
 
 export async function updateCategory(id: string, cat: Partial<Category>): Promise<Category> {
-  try {
-    const c = await apiFetch<any>(`/categories/${id}/`, { method: "PATCH", body: JSON.stringify(cat) });
-    return { id: String(c.id), name: c.name, description: c.description, productCount: c.product_count || 0 };
-  } catch {
-    return cat as Category;
-  }
+  const c = await apiFetch<any>(`/categories/${id}/`, { method: "PATCH", body: JSON.stringify(cat) });
+  return { id: String(c.id), name: c.name, description: c.description, productCount: c.product_count || 0 };
 }
 
 export async function deleteCategory(id: string): Promise<void> {
-  try {
-    await apiFetch(`/categories/${id}/`, { method: "DELETE" });
-  } catch {
-    // fallback
-  }
+  await apiFetch(`/categories/${id}/`, { method: "DELETE" });
 }
 
 // ---------- Purchase Orders ----------
@@ -250,77 +197,42 @@ export interface CreatePurchaseOrderPayload {
 }
 
 export async function fetchPurchaseOrders(): Promise<PurchaseOrder[]> {
-  try {
-    const data = await apiFetch<any[] | { results: any[] }>("/purchase-orders/");
-    return listFromResponse(data).map(mapPurchaseOrder);
-  } catch {
-    return mockOrders;
-  }
+  const data = await apiFetch<any[] | { results: any[] }>("/purchase-orders/");
+  return listFromResponse(data).map(mapPurchaseOrder);
 }
 
 export async function createPurchaseOrder(payload: CreatePurchaseOrderPayload): Promise<PurchaseOrder> {
-  try {
-    const o = await apiFetch<any>("/purchase-orders/", {
-      method: "POST",
-      body: JSON.stringify({
-        supplier: Number(payload.supplierId),
-        expected_date: payload.expectedDate || null,
-        order_items: payload.orderItems.map((item) => ({
-          product: Number(item.productId),
-          quantity: item.quantity,
-          unit_price: item.unitPrice,
-        })),
-      }),
-    });
-    return mapPurchaseOrder(o);
-  } catch {
-    const supplierName = mockSuppliers.find((s) => s.id === payload.supplierId)?.name || "";
-    const total = payload.orderItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
-    return {
-      id: `PO-${Date.now()}`,
-      supplier: supplierName,
-      supplierId: payload.supplierId,
-      date: new Date().toISOString().split("T")[0],
-      expectedDate: payload.expectedDate,
-      items: payload.orderItems.length,
-      total,
-      status: "pending",
-    };
-  }
+  const o = await apiFetch<any>("/purchase-orders/", {
+    method: "POST",
+    body: JSON.stringify({
+      supplier: Number(payload.supplierId),
+      expected_date: payload.expectedDate || null,
+      order_items: payload.orderItems.map((item) => ({
+        product: Number(item.productId),
+        quantity: item.quantity,
+        unit_price: item.unitPrice,
+      })),
+    }),
+  });
+  return mapPurchaseOrder(o);
 }
 
 export async function updatePurchaseOrder(
   dbId: string,
   data: { status?: PurchaseOrder["status"]; expectedDate?: string }
 ): Promise<PurchaseOrder> {
-  try {
-    const body: Record<string, string> = {};
-    if (data.status) body.status = data.status;
-    if (data.expectedDate) body.expected_date = data.expectedDate;
-    const o = await apiFetch<any>(`/purchase-orders/${dbId}/`, {
-      method: "PATCH",
-      body: JSON.stringify(body),
-    });
-    return mapPurchaseOrder(o);
-  } catch {
-    return {
-      id: dbId,
-      dbId,
-      supplier: "",
-      date: new Date().toISOString().split("T")[0],
-      items: 0,
-      total: 0,
-      status: data.status || "pending",
-    };
-  }
+  const body: Record<string, string> = {};
+  if (data.status) body.status = data.status;
+  if (data.expectedDate) body.expected_date = data.expectedDate;
+  const o = await apiFetch<any>(`/purchase-orders/${dbId}/`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+  return mapPurchaseOrder(o);
 }
 
 export async function deletePurchaseOrder(dbId: string): Promise<void> {
-  try {
-    await apiFetch(`/purchase-orders/${dbId}/`, { method: "DELETE" });
-  } catch {
-    // fallback handled in UI
-  }
+  await apiFetch(`/purchase-orders/${dbId}/`, { method: "DELETE" });
 }
 
 // ---------- Stock Alerts ----------
@@ -339,12 +251,8 @@ function alertsFromProducts(products: Product[]): StockAlert[] {
 }
 
 export async function fetchStockAlerts(): Promise<StockAlert[]> {
-  try {
-    const products = await fetchProducts();
-    return alertsFromProducts(products);
-  } catch {
-    return mockAlerts;
-  }
+  const products = await fetchProducts();
+  return alertsFromProducts(products);
 }
 
 // ---------- Dashboard Stats ----------
@@ -411,12 +319,8 @@ function statsFromProducts(products: Product[], suppliers: Supplier[]): Dashboar
 }
 
 export async function fetchDashboardStats(): Promise<DashboardStats> {
-  try {
-    const [products, suppliers] = await Promise.all([fetchProducts(), fetchSuppliers()]);
-    return statsFromProducts(products, suppliers);
-  } catch {
-    return statsFromProducts(mockProducts, mockSuppliers);
-  }
+  const [products, suppliers] = await Promise.all([fetchProducts(), fetchSuppliers()]);
+  return statsFromProducts(products, suppliers);
 }
 
 // ---------- Analytics ----------
@@ -459,15 +363,15 @@ export interface AnalyticsData {
     outOfStock: number;
     inStockPercent: number;
   };
-  monthlySales: typeof mockSalesData;
-  categoryStock: typeof mockCategoryStock;
+  monthlySales: MonthlyOrderTrend[];
+  categoryStock: CategoryStockSlice[];
   categoryValue: CategoryValueRow[];
   topProductsByValue: ProductProfitRow[];
   topProductsByProfit: ProductProfitRow[];
   valueComparison: { name: string; retail: number; cost: number; profit: number }[];
 }
 
-function monthlyOrderData(orders: PurchaseOrder[]) {
+function monthlyOrderData(orders: PurchaseOrder[]): MonthlyOrderTrend[] {
   const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const now = new Date();
   const months = Array.from({ length: 6 }, (_, index) => {
@@ -589,14 +493,10 @@ function buildAnalyticsData(products: Product[], orders: PurchaseOrder[], stockB
 }
 
 export async function fetchAnalyticsData(): Promise<AnalyticsData> {
-  try {
-    const [stockByCat, products, orders] = await Promise.all([
-      apiFetch<any[]>("/products/stock_by_category/").catch(() => []),
-      fetchProducts(),
-      fetchPurchaseOrders(),
-    ]);
-    return buildAnalyticsData(products, orders, stockByCat);
-  } catch {
-    return buildAnalyticsData(mockProducts, mockOrders, mockCategoryStock.map((c) => ({ name: c.category, total_stock: c.value })));
-  }
+  const [stockByCat, products, orders] = await Promise.all([
+    apiFetch<any[]>("/products/stock_by_category/").catch(() => [] as any[]),
+    fetchProducts(),
+    fetchPurchaseOrders(),
+  ]);
+  return buildAnalyticsData(products, orders, stockByCat);
 }

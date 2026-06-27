@@ -21,6 +21,7 @@ export default function Dashboard() {
   const { data: orders = [] } = usePurchaseOrders();
   const monthlySalesData = analytics?.monthlySales ?? [];
   const categoryStockData = analytics?.categoryStock ?? [];
+  const totalInventoryValue = dashStats?.totalValue ?? analytics?.totalValue ?? 0;
 
   const stats = [
     {
@@ -31,7 +32,7 @@ export default function Dashboard() {
     },
     {
       label: "Total Value",
-      value: dashStats ? `$${dashStats.totalValue.toLocaleString()}` : "—",
+      value: dashStats ? `$${totalInventoryValue.toLocaleString()}` : analytics ? `$${totalInventoryValue.toLocaleString()}` : "—",
       change: "Live", trend: "up" as const,
       icon: DollarSign, color: "text-success", bg: "bg-success/10",
     },
