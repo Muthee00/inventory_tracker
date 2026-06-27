@@ -174,7 +174,7 @@ export default function Dashboard() {
                     order.status === "delivered" && "text-success",
                     order.status === "pending" && "text-warning",
                     order.status === "cancelled" && "text-destructive",
-                    (order.status === "shipped" || order.status === "approved") && "text-primary",
+                    (order.status === "shipped" || order.status === "confirmed") && "text-primary",
                   )}>
                     {order.status}
                   </p>
