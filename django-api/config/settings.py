@@ -6,13 +6,15 @@ load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get("SECRET_KEY")
-DEBUG = os.environ.get('DEBUG', '0') == '1'
+DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
     "backend",
     "inventory-app-backend-1",
-    "213.199.60.37/",
+    "213.199.60.37",
+    "www.hilift.xyz",
+    "inventory-app-nginx-1"
 ]
 
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
@@ -47,9 +49,6 @@ ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
 
 CORS_ALLOW_ALL_ORIGINS = True
-
-
-DEBUG = os.environ.get('DEBUG', '1') == '1'   # Default to True in development
 
 if DEBUG:
     DATABASES = {
