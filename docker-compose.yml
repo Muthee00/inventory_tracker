@@ -45,7 +45,7 @@ jobs:
           DB_NAME: inventory
           DB_USER: invent_admin
           DB_PASSWORD: soft2025
-          DB_HOST: localhost
+          DB_HOST: 127.0.0.1
           DB_PORT: 5432
           DJANGO_SECRET_KEY: "django-insecure-test-key-only-for-ci"
           # Add any other required env vars here
