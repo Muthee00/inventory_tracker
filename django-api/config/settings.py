@@ -48,7 +48,14 @@ MIDDLEWARE = [
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
 
-CORS_ALLOW_ALL_ORIGINS = True
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
+else:
+    CORS_ALLOWED_ORIGINS = [
+        "http://213.199.60.37",
+        "https://www.hilift.xyz",
+        "https://hilift.xyz",
+    ]
 
 if DEBUG:
     DATABASES = {

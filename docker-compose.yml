@@ -1,13 +1,12 @@
 services:
-  mysql:
-    image: mysql:8.4
-    restart: always
-    # Best practice: Use the .env file your VPS script generates 
-    # instead of hardcoding the passwords here!
-    env_file:
-      - .env
-    volumes:
-      - mysql_data:/var/lib/mysql
+  postgres:
+    image: postgres:16
+    env:
+      POSTGRES_DB: inventory
+      POSTGRES_USER: invent_admin
+      POSTGRES_PASSWORD: soft2025
+    ports:
+      - 5432:5432
 
   backend:
     # REMOVED: build: ./django-api
