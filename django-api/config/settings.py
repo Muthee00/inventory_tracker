@@ -72,7 +72,7 @@ else:
         "NAME": os.getenv("DB_NAME", "inventory"),
         "USER": os.getenv("DB_USER", "invent_admin"),
         "PASSWORD": os.getenv("DB_PASSWORD", "soft2025"),
-        "HOST": os.getenv("DB_HOST", "localhost"), 
+        "HOST": os.getenv("DB_HOST", "localhost"),   
         "PORT": os.getenv("DB_PORT", "5432"),
     }
 }

@@ -2,7 +2,7 @@ name: Django CI
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [ main, develop ]
   pull_request:
 
 jobs:
@@ -30,15 +30,15 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: "3.12"
 
       - name: Install dependencies
         working-directory: ./django-api
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt   # adjust if you use poetry/pipenv
+          pip install -r requirements.txt
 
-      - name: Run Django tests
+      - name: Run Migrations & Tests
         working-directory: ./django-api
         env:
           DEBUG: "False"
@@ -47,6 +47,8 @@ jobs:
           DB_PASSWORD: soft2025
           DB_HOST: localhost
           DB_PORT: 5432
-          # Add other env vars from your .env if needed
+          DJANGO_SECRET_KEY: "django-insecure-test-key-only-for-ci"
+          # Add any other required env vars here
         run: |
-          python manage.py test --settings=your_project.settings_test  # or just python manage.py test
+          python manage.py migrate --noinput
+          python manage.py test
