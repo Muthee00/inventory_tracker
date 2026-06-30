@@ -1,33 +1,42 @@
 services:
   postgres:
     image: postgres:16
-    env:
+    restart: always
+
+    environment:
       POSTGRES_DB: inventory
       POSTGRES_USER: invent_admin
       POSTGRES_PASSWORD: soft2025
-    ports:
-      - 5432:5432
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U invent_admin -d inventory"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   backend:
-    # REMOVED: build: ./django-api
-    # ADDED: Pull the image from Docker Hub instead
     image: ${DOCKER_USERNAME}/inventory-app-backend:latest
     restart: always
+
     env_file:
       - .env
+
     depends_on:
-      - mysql
+      postgres:
+        condition: service_healthy
 
   nginx:
-    # REMOVED: image: nginx:alpine
-    # ADDED: Pull your custom frontend image containing the React build and Nginx config
     image: ${DOCKER_USERNAME}/inventory-app-frontend:latest
     restart: always
+
     ports:
-      - "80"
-    # REMOVED the volumes that tried to mount local files that don't exist on the VPS
+      - "80:80"
+
     depends_on:
       - backend
 
 volumes:
-  mysql_data:
+  postgres_data:
